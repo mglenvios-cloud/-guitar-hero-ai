@@ -9,7 +9,7 @@ import { Upload, Play, Music } from "lucide-react";
 const KEYS = ["a", "s", "d", "f"];
 const LANE_COLORS = ["#ec4899", "#8b5cf6", "#14b8a6", "#eab308"];
 const PITCHES = ["C4", "E4", "G4", "C5"]; 
-const NOTE_SPEED = 0.4; // píxeles por milisegundo
+const NOTE_SPEED = 0.2; // píxeles por milisegundo (más lento)
 const HIT_ZONE_Y = 500; 
 const HIT_TOLERANCE = 60; 
 const NOTE_RADIUS = 20;
@@ -494,9 +494,6 @@ export default function MusicHeroMode() {
     } else {
       gameState.current.startTime = 0; 
     }
-    return () => {
-      gameState.current.startTime = 0;
-    };
   }, [isPlaying]);
 
   return (
