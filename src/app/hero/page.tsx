@@ -294,25 +294,29 @@ export default function MusicHeroMode() {
     setScore(0);
     setCombo(0);
     
-    // Preparar reproducción MIDI real
-    if (midiPart.current) {
-      midiPart.current.dispose();
+    try {
+      // Preparar reproducción MIDI real
+      if (midiPart.current) {
+        midiPart.current.dispose();
+      }
+      
+      const notesToPlay = rawNotes.map(n => ({
+        time: n.time + 3, // +3 seconds delay to match UI notes (time * 1000 + 3000)
+        note: n.name,
+        duration: n.duration,
+        velocity: n.velocity
+      }));
+
+      midiPart.current = new Tone.Part((time, value) => {
+        bgSynth.current?.triggerAttackRelease(value.note, value.duration, time, value.velocity);
+      }, notesToPlay).start(0);
+
+      Tone.Transport.stop();
+      Tone.Transport.position = 0;
+      Tone.Transport.start(Tone.now());
+    } catch (err: any) {
+      setDebugError(`Error al iniciar MIDI: ${err.message}`);
     }
-    
-    const notesToPlay = rawNotes.map(n => ({
-      time: n.time + 3, // +3 seconds delay to match UI notes (time * 1000 + 3000)
-      note: n.name,
-      duration: n.duration,
-      velocity: n.velocity
-    }));
-
-    midiPart.current = new Tone.Part((time, value) => {
-      bgSynth.current?.triggerAttackRelease(value.note, value.duration, time, value.velocity);
-    }, notesToPlay).start(0);
-
-    Tone.Transport.stop();
-    Tone.Transport.position = 0;
-    Tone.Transport.start(Tone.now());
     
     requestAnimationFrame(gameLoop);
   };
@@ -475,8 +479,12 @@ export default function MusicHeroMode() {
        return;
     }
 
-    if (gameState.current.startTime > 0) {
-      requestAnimationFrame(gameLoop);
+    try {
+      if (gameState.current.startTime > 0) {
+        requestAnimationFrame(gameLoop);
+      }
+    } catch (err: any) {
+      setDebugError(`Error en gameLoop: ${err.message}`);
     }
   };
 
