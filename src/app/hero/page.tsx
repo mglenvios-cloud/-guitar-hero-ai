@@ -36,7 +36,11 @@ export default function MusicHeroMode() {
   const [combo, setCombo] = useState(0);
   const [songName, setSongName] = useState("Selecciona una canción...");
   const [currentSong, setCurrentSong] = useState<GameNote[]>([]);
+  const [rawNotes, setRawNotes] = useState<any[]>([]);
   const [debugError, setDebugError] = useState<string | null>(null);
+
+  const midiPart = useRef<Tone.Part | null>(null);
+  const bgSynth = useRef<Tone.PolySynth | null>(null);
 
   const SONGS = [
     { name: "De Música Ligera (Soda Stereo)", path: "/midis/musica_ligera.mid" },
@@ -62,6 +66,12 @@ export default function MusicHeroMode() {
   });
 
   useEffect(() => {
+    bgSynth.current = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: "sawtooth" },
+      envelope: { attack: 0.05, decay: 0.2, sustain: 0.2, release: 1 },
+    }).toDestination();
+    bgSynth.current.volume.value = -12;
+
     gameState.current.synth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: "sine" },
       envelope: { attack: 0.05, decay: 0.1, sustain: 0.3, release: 1 },
@@ -69,6 +79,9 @@ export default function MusicHeroMode() {
 
     return () => {
       gameState.current.synth?.dispose();
+      bgSynth.current?.dispose();
+      midiPart.current?.dispose();
+      Tone.Transport.stop();
     };
   }, []);
 
@@ -138,6 +151,7 @@ export default function MusicHeroMode() {
       parsedNotes.sort((a, b) => a.time - b.time);
 
       setCurrentSong(parsedNotes);
+      setRawNotes(track.notes);
       setSongName(name);
     } catch (err: any) {
       console.error(err);
@@ -280,12 +294,37 @@ export default function MusicHeroMode() {
     setScore(0);
     setCombo(0);
     
+    // Preparar reproducción MIDI real
+    if (midiPart.current) {
+      midiPart.current.dispose();
+    }
+    
+    const notesToPlay = rawNotes.map(n => ({
+      time: n.time + 3, // +3 seconds delay to match UI notes (time * 1000 + 3000)
+      note: n.name,
+      duration: n.duration,
+      velocity: n.velocity
+    }));
+
+    midiPart.current = new Tone.Part((time, value) => {
+      bgSynth.current?.triggerAttackRelease(value.note, value.duration, time, value.velocity);
+    }, notesToPlay).start(0);
+
+    Tone.Transport.stop();
+    Tone.Transport.position = 0;
+    Tone.Transport.start(Tone.now());
+    
     requestAnimationFrame(gameLoop);
   };
 
   const stopGame = () => {
     setIsPlaying(false);
     setGameStatus('idle');
+    Tone.Transport.stop();
+    if (midiPart.current) {
+        midiPart.current.dispose();
+        midiPart.current = null;
+    }
   };
 
   const gameLoop = () => {
@@ -426,6 +465,7 @@ export default function MusicHeroMode() {
     if (allPassed && timePassed) {
        setIsPlaying(false);
        setGameStatus('finished');
+       Tone.Transport.stop();
        setStats({
          hits: gameState.current.hits,
          misses: gameState.current.misses,
